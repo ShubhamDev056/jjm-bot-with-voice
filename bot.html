@@ -49,11 +49,91 @@
           },
         ]);
         const [isDisableSentIcon, setIsDisableSentIcon] = React.useState(true);
-        const [isDisableMicIcon, setIsDisableMicIcon] = React.useState(true);
+        const [isDisableMicIcon, setIsDisableMicIcon] = React.useState(false);
+        const [isListiningStart, setisListiningStart] = React.useState(false);
 
-        // Example: Function to toggle chat using useState Hook
+        let recognition;
+        let synth = window.speechSynthesis;
+
+        const accessMicrophone = () => {
+          if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+            // Check if permission is already granted or previously denied
+            const permissionStatus = localStorage.getItem(
+              "microphonePermission"
+            );
+            if (permissionStatus === "granted") {
+              console.log("Microphone permission already granted!");
+              recognition = new (window.SpeechRecognition ||
+                window.webkitSpeechRecognition)();
+              recognition.lang = "en-US";
+              recognition.continuous = true;
+              startListening();
+            } else if (permissionStatus !== "denied") {
+              requestMicrophonePermission();
+            }
+          } else {
+            alert(
+              "Speech recognition is not supported on this browser. Please use a supported browser."
+            );
+          }
+          checkMicrophonePermission();
+        };
+
+        const checkMicrophonePermission = () => {
+          navigator.permissions
+            .query({ name: "microphone" })
+            .then((permissionStatus) => {
+              if (permissionStatus.state === "granted") {
+                console.log("Microphone permission already granted!");
+              } else {
+                requestMicrophonePermission();
+              }
+            });
+        };
+
+        const requestMicrophonePermission = () => {
+          navigator.mediaDevices
+            .getUserMedia({ audio: true })
+            .then((stream) => {
+              console.log("Microphone permission granted!");
+              localStorage.setItem("microphonePermission", "granted");
+              stream.getTracks().forEach((track) => {
+                console.log("track!!!!!!!!", track);
+                track.stop();
+              });
+            })
+            .catch((error) => {
+              console.log("denied permission");
+              localStorage.setItem("microphonePermission", "denied");
+              alert(
+                "Microphone permission denied. Speech recognition will not work."
+              );
+            });
+        };
+
+        const stopListening = () => {
+          if (recognition) {
+            recognition.stop();
+            setisListiningStart(false);
+          }
+        };
+
+        // Function to toggle chat using useState Hook
         function toggleChat() {
           setIsOpen((prevOpen) => !prevOpen);
+        }
+        // Function for resetting chat
+        function resetChat() {
+          console.log("resetting chat");
+          setMessages([
+            {
+              type: "ai",
+              content:
+                "Hi there 🖐. I’m JJM bot, your virtual assistant. I'm here to help with your general enquiries.You can also ask me in Indian languages.",
+            },
+            ,
+          ]);
+          setInputValue("");
         }
 
         // scroll to bottom
@@ -87,18 +167,17 @@
           if (inputValue.length > 0) {
             console.log("done", inputValue);
             setIsDisableSentIcon(false);
-            setIsDisableMicIcon(false);
           } else {
             setIsDisableSentIcon(true);
-            setIsDisableMicIcon(true);
           }
         }, [inputValue]);
 
         //send a message
-        const sendMessage = () => {
-          if (inputValue.trim() !== "") {
-            userMessage(inputValue);
-            send(inputValue);
+        const sendMessage = (speechInput) => {
+          if (inputValue.trim() !== "" || speechInput.trim() !== "") {
+            console.log("callSendMessage", inputValue, speechInput);
+            userMessage(inputValue || speechInput);
+            send(inputValue || speechInput);
             setInputValue("");
           }
         };
@@ -114,6 +193,7 @@
         };
 
         const send = (inputValue) => {
+          console.log("object sent", inputValue);
           setLoading(true);
           console.log(
             "url",
@@ -154,13 +234,41 @@
           ]);
         };
 
+        const startListening = () => {
+          if (recognition) {
+            recognition.onresult = function (event) {
+              const transcript = event.results[0][0].transcript;
+              console.log("object: " + transcript);
+              //displayMessage(transcript);
+              //respondToUser(transcript);
+              setInputValue(transcript);
+              sendMessage(transcript);
+              stopListening();
+              setInputValue("");
+            };
+            recognition.start();
+
+            recognition.onstart = function () {
+              setisListiningStart(true);
+            };
+
+            console.log("startListening....");
+
+            recognition.onend = function (event) {
+              console.log("Speech recognition service disconnected");
+              setisListiningStart(false);
+            };
+          }
+          console.log("recognition!!!!!", recognition);
+        };
+
         //Render function
         return (
           <div className={`chatbot ${!isOpen ? "chatbot--closed" : ""}`}>
             <div className="chatbot__header_Icon">
               <img
                 id="chatboticon"
-                src="./assets/images/chat-bot-new--icon-final.gif"
+                src="./assets/images/chatbot-icon-animated.gif"
                 alt="assistant-avatar"
                 style={{ width: 140 }}
                 onClick={toggleChat}
@@ -174,8 +282,17 @@
                     How can i assist you?{" "}
                     <span className="askQue">Ask Questions</span>
                   </div>
-                  <span className="closeChatbot" onClick={toggleChat}>
-                    <i className="fa fa-times closeicon" aria-hidden="true"></i>
+                  <span className="closeChatbot">
+                    <i
+                      className="fa-solid fa-arrow-rotate-right reset-chat"
+                      title="Reset Chat"
+                      onClick={resetChat}
+                    ></i>
+                    <i
+                      className="fa fa-times closeicon"
+                      aria-hidden="true"
+                      onClick={toggleChat}
+                    ></i>
                   </span>
                 </div>
                 <div
@@ -215,7 +332,9 @@
                 <input
                   type="text"
                   className="chatbot__input"
-                  placeholder="Type a message..."
+                  placeholder={
+                    isListiningStart ? "Listening....." : "Type a message..."
+                  }
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={(event) => {
@@ -223,12 +342,20 @@
                   }}
                 />
 
-                <button id="speech" className="btn m-left type2">
-                  <div className="pulse-rings" />
+                <button
+                  id="speech"
+                  className={`btn m-left ${
+                    isListiningStart ? "listening" : "type2"
+                  } `}
+                >
+                  <div
+                    className={`${isListiningStart ? "pulse-ring" : null}`}
+                  />
                   <i
                     className={`fa-solid fa-microphone ${
                       isDisableMicIcon ? "disable-icon" : "sent"
                     }`}
+                    onClick={accessMicrophone}
                   ></i>
                 </button>
 
