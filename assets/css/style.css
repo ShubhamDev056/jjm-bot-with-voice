@@ -149,6 +149,7 @@
   letter-spacing: -0.01em;
   line-height: 1.45;
   overflow: hidden;
+  text-align: justify;
 }
 
 .is-ai .chatbot__message {
