@@ -131,7 +131,6 @@
               content:
                 "Hi there 🖐. I’m JJM bot, your virtual assistant. I'm here to help with your general enquiries.You can also ask me in Indian languages.",
             },
-            ,
           ]);
           setInputValue("");
         }
@@ -174,7 +173,10 @@
 
         //send a message
         const sendMessage = (speechInput) => {
-          if (inputValue.trim() !== "" || speechInput.trim() !== "") {
+          if (
+            inputValue.trim() !== "" ||
+            (speechInput.length > 0 && speechInput.trim() !== "")
+          ) {
             console.log("callSendMessage", inputValue, speechInput);
             userMessage(inputValue || speechInput);
             send(inputValue || speechInput);
