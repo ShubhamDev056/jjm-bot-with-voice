@@ -36,7 +36,86 @@
           <span className="loader__dot"></span>
         </span>
       );
+      function ConfirmationPopup({
+        isActionButtonVisible,
+        message,
+        onConfirm,
+        onCancel,
+      }) {
+        return (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 1000,
+              background: "white",
+              padding: "20px",
+              boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+              borderRadius: "8px",
+              minWidth: "300px",
+            }}
+          >
+            {/* Close Icon */}
+            <div
+              style={{
+                position: "absolute",
+                top: "-11px",
+                right: "-6px",
+                cursor: "pointer",
+                fontSize: "18px",
+              }}
+              onClick={onCancel} // Close the popup on clicking the icon
+            >
+              <i className="fa fa-close" style={{ color: "#f44336" }}></i>
+            </div>
+            <p
+              style={{ fontSize: "13px", fontWeight: "bold", color: "#3c3a3a" }}
+            >
+              {message}
+            </p>
+            <div
+              className={`model_button_container ${
+                isActionButtonVisible
+                  ? "model_button_container_disabled_block"
+                  : "model_button_container_disabled"
+              }`}
+            >
+              <button
+                style={{
+                  padding: "7px 13px",
+                  background: "#4caf50",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                }}
+                onClick={onConfirm}
+              >
+                Yes
+              </button>
+              <button
+                style={{
+                  padding: "7px 13px",
+                  background: "#f44336",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                }}
+                onClick={onCancel}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       function Chatbot() {
+        const [isNotSupportVoice, setIsNotSuppertedVoice] =
+          React.useState(true);
         const chatbotMessageWindowRef = React.useRef(null);
         const [isOpen, setIsOpen] = React.useState(false);
         const [isLoading, setLoading] = React.useState(false);
@@ -45,17 +124,48 @@
           {
             type: "ai",
             content:
-              "Hi there 🖐. I’m JJM bot, your virtual assistant. I'm here to help with your general enquiries.You can also ask me in Indian languages.",
+              "Hi there 🖐. I’m JJM bot, your virtual assistant. I'm here to help with your general enquiries related to jal jeevan mission.",
           },
         ]);
         const [isDisableSentIcon, setIsDisableSentIcon] = React.useState(true);
         const [isDisableMicIcon, setIsDisableMicIcon] = React.useState(false);
         const [isListiningStart, setisListiningStart] = React.useState(false);
 
+        const [isActionButtonVisible, setIsActionButtonVisible] =
+          React.useState(true);
+        const [showPopup, setShowPopup] = React.useState(false); // Popup visibility state
+        const [popUpMessage, setPopUpMessage] = React.useState(""); // set messase to show in popup window
+
+        const handleSendMessage = () => {
+          setShowPopup(true); // Trigger the popup
+          setIsActionButtonVisible(true);
+          setPopUpMessage("Are you want to sure clear current session?");
+        };
+
+        const handleConfirm = () => {
+          setShowPopup(false);
+          console.log("User confirmed.");
+          resetChat();
+          // Add your logic for the confirmation here
+        };
+
+        const handleCancel = () => {
+          setShowPopup(false);
+          console.log("User canceled.");
+        };
+
         let recognition;
         let synth = window.speechSynthesis;
 
         const accessMicrophone = () => {
+          if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+            // Check if permission is already granted or previously denied
+          } else {
+            setIsNotSuppertedVoice(false);
+          }
+        };
+
+        const accessMicrophoneNew = () => {
           if (window.SpeechRecognition || window.webkitSpeechRecognition) {
             // Check if permission is already granted or previously denied
             const permissionStatus = localStorage.getItem(
@@ -72,12 +182,25 @@
               requestMicrophonePermission();
             }
           } else {
-            alert(
-              "Speech recognition is not supported on this browser. Please use a supported browser."
+            setIsNotSuppertedVoice(false);
+            // alert(
+            //   "Speech recognition is not supported on this browser. Please use a supported browser."
+            // );
+            // console.log(
+            //   "Microphone permission denied. Speech recognition will not work."
+            // );
+            setShowPopup(true);
+            setPopUpMessage(
+              "Microphone permission denied. allow permission before use it."
             );
+            setIsActionButtonVisible(false);
           }
           checkMicrophonePermission();
         };
+
+        React.useEffect(() => {
+          accessMicrophone();
+        }, []);
 
         const checkMicrophonePermission = () => {
           navigator.permissions
@@ -98,16 +221,24 @@
               console.log("Microphone permission granted!");
               localStorage.setItem("microphonePermission", "granted");
               stream.getTracks().forEach((track) => {
-                console.log("track!!!!!!!!", track);
                 track.stop();
               });
             })
             .catch((error) => {
               console.log("denied permission");
               localStorage.setItem("microphonePermission", "denied");
-              alert(
+              // alert(
+              //   "Microphone permission denied. Speech recognition will not work."
+              // );
+
+              console.log(
                 "Microphone permission denied. Speech recognition will not work."
               );
+              setShowPopup(true);
+              setPopUpMessage(
+                "Microphone permission denied. allow permission before use it."
+              );
+              setIsActionButtonVisible(false);
             });
         };
 
@@ -124,12 +255,11 @@
         }
         // Function for resetting chat
         function resetChat() {
-          console.log("resetting chat");
           setMessages([
             {
               type: "ai",
               content:
-                "Hi there 🖐. I’m JJM bot, your virtual assistant. I'm here to help with your general enquiries.You can also ask me in Indian languages.",
+                "Hi there 🖐. I’m JJM bot, your virtual assistant. I'm here to help with your general enquiries related to jal jeevan mission.",
             },
           ]);
           setInputValue("");
@@ -162,9 +292,7 @@
         }, [isLoading]);
 
         React.useEffect(() => {
-          console.log("inputValue!!!", inputValue, inputValue.length);
           if (inputValue.length > 0) {
-            console.log("done", inputValue);
             setIsDisableSentIcon(false);
           } else {
             setIsDisableSentIcon(true);
@@ -185,53 +313,143 @@
         };
 
         const userMessage = (content) => {
+          const currentTime = new Date().toLocaleTimeString(); // Get current time
           setMessages((prevMessages) => [
             ...prevMessages,
             {
               type: "user",
               content,
+              time: currentTime,
+              status: "read",
             },
           ]);
         };
 
+        // Render ticks based on message status
+        const renderTicks = (status) => {
+          if (status === "sent") return "✔"; // Single grey tick
+          if (status === "delivered") return "✔✔"; // Double grey ticks
+          if (status === "read") return "✔✔"; // Double blue ticks
+        };
+
+        // const send = (inputValue) => {
+        //   console.log("object sent", inputValue);
+        //   setLoading(true);
+        //   console.log(
+        //     "url",
+        //     `${apiBaseUrl}?query_string=${inputValue}&uuid_number=${uuidNumber}`
+        //   );
+        //   //call API here
+        //   fetch(
+        //     `${apiBaseUrl}?query_string=${inputValue}&uuid_number=${uuidNumber}`
+        //   )
+        //     .then((response) => {
+        //       if (!response.ok) {
+        //         throw new Error(errorMessage);
+        //       }
+        //       return response.json();
+        //     })
+        //     .then((response) => {
+        //       // console.log("res", response);
+        //       aiMessage(response.answer, isLoading);
+        //     })
+        //     .catch((e) => {
+        //       aiMessage(errorMessage, isLoading);
+        //       //console.log(e.message);
+        //     })
+        //     .finally(() => {
+        //       setLoading(false);
+        //     });
+        // };
+
         const send = (inputValue) => {
-          console.log("object sent", inputValue);
           setLoading(true);
-          console.log(
-            "url",
-            `${apiBaseUrl}?query_string=${inputValue}&uuid_number=${uuidNumber}`
-          );
-          //call API here
           fetch(
             `${apiBaseUrl}?query_string=${inputValue}&uuid_number=${uuidNumber}`
           )
+            .then((response) => response.json())
             .then((response) => {
-              if (!response.ok) {
-                throw new Error(errorMessage);
+              if (response.answer) {
+                simulateTyping(response.answer);
+              } else {
+                aiMessage(
+                  "I couldn't find an answer to your question.",
+                  isLoading
+                );
               }
-              return response.json();
-            })
-            .then((response) => {
-              // console.log("res", response);
-              aiMessage(response.answer, isLoading);
             })
             .catch((e) => {
               aiMessage(errorMessage, isLoading);
-              //console.log(e.message);
+              console.error("API Error:", e);
             })
             .finally(() => {
               setLoading(false);
             });
         };
 
+        // Simulate typing effect
+        const simulateTyping = (text) => {
+          let index = 0;
+          const typingSpeed = 8; // Adjust typing speed
+          const interval = setInterval(() => {
+            const currentContent = text.substring(0, index + 1);
+            const newMessage = {
+              type: "ai",
+              content: currentContent,
+              loading: true,
+              status: "sent", // Initial message status
+            };
+
+            setMessages((prevMessages) => {
+              // Replace or add the typing message
+              if (prevMessages[prevMessages.length - 1].loading) {
+                return [...prevMessages.slice(0, -1), newMessage];
+              } else {
+                return [...prevMessages, newMessage];
+              }
+            });
+
+            index += 1;
+
+            if (index >= text.length) {
+              clearInterval(interval);
+
+              // Finalize the message state
+              setMessages((prevMessages) => [
+                ...prevMessages.slice(0, -1),
+                {
+                  ...newMessage,
+                  loading: false,
+                  status: "delivered",
+                  time: new Date().toLocaleTimeString(),
+                },
+              ]);
+
+              // Simulate message being read after a delay
+              setTimeout(() => {
+                setMessages((prevMessages) => [
+                  ...prevMessages.slice(0, -1),
+                  {
+                    ...prevMessages[prevMessages.length - 1],
+                    status: "read",
+                  },
+                ]);
+              }, 2000); // Adjust delay for simulating read status
+            }
+          }, typingSpeed);
+        };
+
         //AI message function
         const aiMessage = (content, loading) => {
+          const currentTime = new Date().toLocaleTimeString(); // Get current time
           setMessages((prevMessages) => [
             ...prevMessages,
             {
               type: "ai",
               content,
               loading,
+              time: currentTime,
+              status: "read",
             },
           ]);
         };
@@ -288,7 +506,7 @@
                     <i
                       className="fa-solid fa-arrow-rotate-right reset-chat"
                       title="Reset Chat"
-                      onClick={resetChat}
+                      onClick={handleSendMessage}
                     ></i>
                     <i
                       className="fa fa-times closeicon"
@@ -298,7 +516,9 @@
                   </span>
                 </div>
                 <div
-                  className="chatbot__message-window"
+                  className={`chatbot__message-window ${
+                    showPopup ? "blur-background" : ""
+                  }`}
                   ref={chatbotMessageWindowRef}
                 >
                   <ul className="chatbot__messages">
@@ -318,7 +538,18 @@
                             />
                           </div>
                         )}
-                        <p className="chatbot__message">{message.content}</p>
+
+                        <div className="message-content">
+                          <p className="chatbot__message">{message.content}</p>
+                          <div className="message-meta">
+                            <span className="message-time">{message.time}</span>
+                            {message.type === "user" && (
+                              <span className="ticks">
+                                {renderTicks(message.status)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
 
                         <span
                           className={`chatbot__arrow chatbot__arrow--${
@@ -330,6 +561,16 @@
                   </ul>
                 </div>
               </div>
+              {/* Popup Component */}
+              {showPopup && (
+                <ConfirmationPopup
+                  message={popUpMessage}
+                  isActionButtonVisible={isActionButtonVisible}
+                  onConfirm={handleConfirm}
+                  onCancel={handleCancel}
+                />
+              )}
+
               <div className="chatbot__entry chatbot--closed">
                 <input
                   type="text"
@@ -348,7 +589,8 @@
                   id="speech"
                   className={`btn m-left ${
                     isListiningStart ? "listening" : "type2"
-                  } `}
+                  } ${isNotSupportVoice ? "isMicEnabled" : "isMicDisbaled"} `}
+                  onClick={accessMicrophoneNew}
                 >
                   <div
                     className={`${isListiningStart ? "pulse-ring" : null}`}
@@ -357,7 +599,6 @@
                     className={`fa-solid fa-microphone ${
                       isDisableMicIcon ? "disable-icon" : "sent"
                     }`}
-                    onClick={accessMicrophone}
                   ></i>
                 </button>
 
