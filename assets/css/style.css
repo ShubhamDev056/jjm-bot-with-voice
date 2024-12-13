@@ -535,4 +535,5 @@ strong {
 }
 .ticks {
   color: green;
+  padding-left: 7px;
 }
